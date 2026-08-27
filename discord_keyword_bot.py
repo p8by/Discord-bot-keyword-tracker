@@ -18,7 +18,7 @@ KEYWORDS_FILE = 'keywords.txt'
 DATA_FILE = 'keyword_counts.json'
 ADMINS_FILE = 'admins.txt'
 CONFIG_FILE = 'config.txt'
-PHRASES_FILE = 'phrases.txt'  # holds the reply phrases for the #1 ranked user
+PHRASES_FILE = 'phrases.txt'  
 
 # load keywords from file
 def load_keywords():
@@ -183,8 +183,6 @@ async def on_message(message):
     if found_keywords:
         save_data(keyword_counts)
 
-        # if the #1 ranked user (by total keyword count) triggered a
-        # keyword, call them out with a random phrase and a real ping
         top_user_id = get_top_user_id()
         if top_user_id == user_id and PHRASES:
             phrase = random.choice(PHRASES)
@@ -348,7 +346,7 @@ async def removekeyword(interaction: discord.Interaction, keyword: str):
     save_data(keyword_counts)
     await interaction.response.send_message(f"'{keyword}' removed")
 
-@bot.tree.command(name='phrases', description='Show list of reply phrases used for the #1 ranked user')
+@bot.tree.command(name='phrases', description='Show list of reply phrases')
 async def phrases_command(interaction: discord.Interaction):
     """Show list of reply phrases"""
     embed = discord.Embed(
@@ -358,7 +356,7 @@ async def phrases_command(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name='addphrase', description='Add a new reply phrase for the #1 ranked user (Admin only)')
+@bot.tree.command(name='addphrase', description='Add a new reply phrase (Admin only)')
 @app_commands.describe(phrase='The phrase to add. Use {user} where the ping should go, e.g. "Language {user}"')
 async def addphrase(interaction: discord.Interaction, phrase: str):
     """Add a new reply phrase (Admin only)"""

@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
+import random
 from collections import defaultdict
 
 # bot config
@@ -17,6 +18,7 @@ KEYWORDS_FILE = 'keywords.txt'
 DATA_FILE = 'keyword_counts.json'
 ADMINS_FILE = 'admins.txt'
 CONFIG_FILE = 'config.txt'
+PHRASES_FILE = 'phrases.txt'  # holds the reply phrases for the #1 ranked user
 
 # load keywords from file
 def load_keywords():
@@ -74,8 +76,31 @@ def load_config():
                         return token
     return None
 
+def load_phrases():
+    """Load reply phrases from phrases.txt file.
+
+    Use the placeholder {user} in a phrase. It is replaced with a real
+    mention (ping) of the #1 ranked user at send time. Add more lines to
+    phrases.txt (or use the /addphrase command) to expand the list.
+    """
+    if not os.path.exists(PHRASES_FILE):
+        default_phrases = ['Language {user}', 'Watch your tongue, {user}']
+        with open(PHRASES_FILE, 'w') as f:
+            f.write('\n'.join(default_phrases))
+        print(f"Created {PHRASES_FILE}")
+        return default_phrases
+
+    with open(PHRASES_FILE, 'r') as f:
+        phrases = [line.strip() for line in f if line.strip()]
+
+    if not phrases:
+        print(f"Warning: {PHRASES_FILE} is empty!")
+
+    return phrases
+
 KEYWORDS = load_keywords()
 ADMINS = load_admins()
+PHRASES = load_phrases()
 
 
 def load_data():
@@ -91,11 +116,32 @@ def save_data(data):
 
 keyword_counts = load_data()
 
+
+def get_top_user_id():
+    """Return the user_id (str) with the highest total keyword count.
+
+    Returns None if there is no data yet, or if the top total is 0.
+    """
+    if not keyword_counts:
+        return None
+
+    top_id = max(
+        keyword_counts,
+        key=lambda uid: sum(keyword_counts[uid]['keywords'].values())
+    )
+
+    if sum(keyword_counts[top_id]['keywords'].values()) == 0:
+        return None
+
+    return top_id
+
+
 @bot.event
 async def on_ready():
     print(f'{bot.user} connected to discord')
     print(f'tracking keywords: {", ".join(KEYWORDS)}')
     print(f'admins: {len(ADMINS)}')
+    print(f'reply phrases loaded: {len(PHRASES)}')
     
 
     try:
@@ -136,6 +182,14 @@ async def on_message(message):
     
     if found_keywords:
         save_data(keyword_counts)
+
+        # if the #1 ranked user (by total keyword count) triggered a
+        # keyword, call them out with a random phrase and a real ping
+        top_user_id = get_top_user_id()
+        if top_user_id == user_id and PHRASES:
+            phrase = random.choice(PHRASES)
+            mention = f"<@{message.author.id}>"
+            await message.channel.send(phrase.format(user=mention))
     
     
     await bot.process_commands(message)
@@ -293,6 +347,61 @@ async def removekeyword(interaction: discord.Interaction, keyword: str):
     
     save_data(keyword_counts)
     await interaction.response.send_message(f"'{keyword}' removed")
+
+@bot.tree.command(name='phrases', description='Show list of reply phrases used for the #1 ranked user')
+async def phrases_command(interaction: discord.Interaction):
+    """Show list of reply phrases"""
+    embed = discord.Embed(
+        title="Reply Phrases",
+        description="\n".join(f"- {p}" for p in PHRASES) if PHRASES else "No phrases set",
+        color=discord.Color.green()
+    )
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name='addphrase', description='Add a new reply phrase for the #1 ranked user (Admin only)')
+@app_commands.describe(phrase='The phrase to add. Use {user} where the ping should go, e.g. "Language {user}"')
+async def addphrase(interaction: discord.Interaction, phrase: str):
+    """Add a new reply phrase (Admin only)"""
+    if interaction.user.id not in ADMINS:
+        await interaction.response.send_message("You dont have permission to do this.", ephemeral=True)
+        return
+
+    if phrase in PHRASES:
+        await interaction.response.send_message("That phrase is already in the list!")
+        return
+
+    if '{user}' not in phrase:
+        await interaction.response.send_message(
+            'That phrase has no {user} placeholder, so it will not ping anyone. Add it back with {user} included, e.g. "Language {user}".',
+            ephemeral=True
+        )
+        return
+
+    PHRASES.append(phrase)
+
+    with open(PHRASES_FILE, 'w') as f:
+        f.write('\n'.join(PHRASES))
+
+    await interaction.response.send_message(f'Phrase added: "{phrase}"')
+
+@bot.tree.command(name='removephrase', description='Remove a reply phrase (Admin only)')
+@app_commands.describe(phrase='The exact phrase to remove')
+async def removephrase(interaction: discord.Interaction, phrase: str):
+    """Remove a reply phrase (Admin only)"""
+    if interaction.user.id not in ADMINS:
+        await interaction.response.send_message("You dont have permission to do this.", ephemeral=True)
+        return
+
+    if phrase not in PHRASES:
+        await interaction.response.send_message("That phrase is not in the list!")
+        return
+
+    PHRASES.remove(phrase)
+
+    with open(PHRASES_FILE, 'w') as f:
+        f.write('\n'.join(PHRASES))
+
+    await interaction.response.send_message(f'Phrase removed: "{phrase}"')
 
 # run the bot
 if __name__ == '__main__':

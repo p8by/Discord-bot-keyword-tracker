@@ -3,7 +3,7 @@ A discord bot for counting how many times certain words have been said in a serv
 
 ---
 
-It generates 4 other files when ran:
+It generates 5 other files when ran:
 
 **admins.txt** - place UIDs in here to allow them to use the admin commands.
 
@@ -17,7 +17,7 @@ It generates 4 other files when ran:
 
 # Commands
 
-Contains seven commands:
+Contains eight commands:
 
 **/addkeyword** - adds a new keyword to the keywords.txt (admin only)
 

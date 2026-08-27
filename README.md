@@ -25,6 +25,8 @@ Contains seven commands:
 
 **/addphrase** - adds a phrase to phrases.txt (admin only)
 
+**/removephrase** -removes a phrase from phrases.txt (admin only)
+
 **/keywords** - shows a list of tracked keywords from keywords.txt
 
 **/leaderboard** - two options, first one shows leaderboard for total amount of keywords said, second option shows how many times a certain keyword has been said by users
